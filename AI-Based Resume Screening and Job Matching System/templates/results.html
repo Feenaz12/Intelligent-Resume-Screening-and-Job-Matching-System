@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resume Matching Results</title>
+
+<!-- Bootstrap CSS & Icons -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #f8f9fa;
+    padding-top: 80px;
+    color: #1e293b;
+}
+
+h1 {
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.navbar {
+    background-color: #0f172a;
+}
+
+.top-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.table-container {
+    background: #fff;
+    padding: 25px;
+    border-radius: 18px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.08);
+    margin-bottom: 40px;
+}
+
+.table thead th {
+    background-color: #1e293b;
+    color: #fff;
+    text-align: center;
+    position: sticky;
+    top: 0;
+}
+
+.table tbody tr:nth-child(even) {
+    background-color: #f1f5f9;
+}
+
+.table tbody tr:hover {
+    background-color: #e2e8f0;
+}
+
+.top-candidate {
+    background-color: #dbeafe !important;
+    font-weight: 600;
+}
+
+.matched { color: #15803d; font-weight: 600; }
+.missing { color: #b91c1c; font-weight: 600; }
+
+.badge {
+    font-weight: 600;
+    border-radius: 12px;
+    padding: 0.5em 0.75em;
+}
+
+/* Loader */
+#loader {
+    position: fixed;
+    inset: 0;
+    background: rgba(248,249,250,0.95);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+#loader.hidden { display: none; }
+
+/* Toasts */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1055;
+}
+</style>
+</head>
+
+<body>
+
+<!-- Loader -->
+<div id="loader">
+    <div class="spinner-border text-dark mb-3"></div>
+    <p>Loading, please wait...</p>
+</div>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+    <div class="container">
+        <a class="navbar-brand" href="{{ url_for('index') }}">
+            Intelligent Resume Screening System
+        </a>
+        <ul class="navbar-nav ms-auto">
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('index') }}">Upload</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('history') }}">History</a></li>
+            <li class="nav-item">
+                <a class="nav-link btn btn-outline-light btn-sm ms-2" href="{{ url_for('logout') }}">Logout</a>
+            </li>
+        </ul>
+    </div>
+</nav>
+
+<div class="container">
+
+<!-- Page Title -->
+{% if viewing_history %}
+<h1>Previous Results</h1>
+{% else %}
+<h1>Analyzed Results</h1>
+{% endif %}
+
+<!-- Top Buttons -->
+<div class="top-buttons">
+    <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg">
+        <i class="bi bi-upload"></i> Upload New
+    </a>
+
+    {% if viewing_history %}
+    <a href="{{ url_for('current_results') }}" class="btn btn-outline-dark btn-lg">
+        <i class="bi bi-arrow-left-circle"></i> Back to Current Results
+    </a>
+    {% else %}
+    <a href="{{ url_for('history') }}" class="btn btn-outline-dark btn-lg">
+        <i class="bi bi-clock-history"></i> View History
+    </a>
+    {% endif %}
+</div>
+
+<!-- EMPTY HISTORY STATE -->
+{% if viewing_history and not jd_results %}
+<div class="table-container text-center">
+    <h3 class="mb-3">No Previous Results Found</h3>
+    <p class="text-muted mb-4">You have not analyzed any resumes yet.</p>
+    <a href="{{ url_for('current_results') }}" class="btn btn-primary btn-lg">
+        <i class="bi bi-arrow-left-circle"></i> Go Back to Current Results
+    </a>
+</div>
+{% endif %}
+
+<!-- RESULTS -->
+{% if jd_results %}
+{% for jd in jd_results %}
+<div class="table-container">
+    <h3 class="mb-3">{{ jd.jd_name }}</h3>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle text-center">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Resume</th>
+                    {% if not viewing_history %}
+                    <th>Actions</th>
+                    {% endif %}
+                    <th>Score (%)</th>
+                    <th>Fit</th>
+                    <th>Skills Matched</th>
+                    <th>Skills Missing</th>
+                    <th>Education</th>
+                    <th>Experience</th>
+                    <th>Semantic (%)</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for res in jd.results %}
+            {% set score = res.factor_scores.overall_score * 100 %}
+            <tr class="{% if loop.first %}top-candidate{% endif %}">
+                <td>{{ loop.index }}</td>
+                <td class="text-start">{{ res.resume_name }}</td>
+
+                {% if not viewing_history %}
+                <td>
+                    <form action="{{ url_for('replace_resume') }}" method="post" enctype="multipart/form-data" class="mb-1">
+                        <input type="hidden" name="file_name" value="{{ res.file_name }}">
+                        <input type="file" name="new_resume" required class="form-control form-control-sm mb-1">
+                        <button type="submit" class="btn btn-sm btn-warning w-100">Replace</button>
+                    </form>
+                    <form action="{{ url_for('delete_resume') }}" method="post">
+                        <input type="hidden" name="file_name" value="{{ res.file_name }}">
+                        <button type="submit" class="btn btn-sm btn-danger w-100">Delete</button>
+                    </form>
+                </td>
+                {% endif %}
+
+                <td>{{ "%.2f"|format(score) }}</td>
+                <td>
+                    {% if score >= 80 %}
+                        <span class="badge bg-success">Excellent</span>
+                    {% elif score >= 60 %}
+                        <span class="badge bg-primary">Good</span>
+                    {% elif score >= 40 %}
+                        <span class="badge bg-warning text-dark">Average</span>
+                    {% else %}
+                        <span class="badge bg-danger">Poor</span>
+                    {% endif %}
+                </td>
+                <td class="text-start">
+                    {% for s in res.factor_scores.skills_matched %}
+                        <span class="matched">{{ s }}</span>{% if not loop.last %}, {% endif %}
+                    {% else %}
+                        <span class="text-muted">None</span>
+                    {% endfor %}
+                </td>
+                <td class="text-start">
+                    {% for s in res.factor_scores.skills_missing %}
+                        <span class="missing">{{ s }}</span>{% if not loop.last %}, {% endif %}
+                    {% else %}
+                        <span class="text-muted">None</span>
+                    {% endfor %}
+                </td>
+                <td>
+                    {% if res.factor_scores.education_score == 1 %}
+                        <span class="matched">✔ Matched</span>
+                    {% else %}
+                        <span class="missing">✖ Not Matched</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if res.factor_scores.experience_score == 1 %}
+                        <span class="matched">✔ Matched</span>
+                    {% else %}
+                        <span class="missing">✖ Not Matched</span>
+                    {% endif %}
+                </td>
+                <td>{{ "%.2f"|format(res.factor_scores.semantic_score * 100) }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+
+</div>
+
+<!-- Toasts -->
+<div class="toast-container">
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for category, message in messages %}
+<div class="toast text-bg-{{ category }}" data-bs-delay="3000">
+    <div class="d-flex">
+        <div class="toast-body">{{ message }}</div>
+        <button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+</div>
+{% endfor %}
+{% endwith %}
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".toast").forEach(t => new bootstrap.Toast(t).show());
+});
+
+window.addEventListener("load", () => {
+    document.getElementById("loader").classList.add("hidden");
+});
+</script>
+
+</body>
+</html>

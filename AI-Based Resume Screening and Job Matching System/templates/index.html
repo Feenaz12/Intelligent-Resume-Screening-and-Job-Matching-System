@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intelligent Resume Screening and Job Matching System</title>
+
+<!-- Bootstrap CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* -------- Global -------- */
+body {
+    font-family: 'Roboto', sans-serif;
+    background: linear-gradient(180deg, #f7f9fc 0%, #eef2f7 100%);
+    min-height: 100vh;
+    padding-top: 80px; /* For navbar spacing */
+    color: #1e293b;
+}
+
+/* -------- Navbar -------- */
+.navbar { background-color: #0f172a; }
+.navbar .btn-outline-light { border-radius: 8px; font-weight: 500; }
+
+/* -------- Card -------- */
+.card {
+    max-width: 750px;
+    width: 100%;
+    padding: 44px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+    margin: auto;
+}
+
+/* -------- Heading -------- */
+h1 { font-weight: 700; color: #0f172a; text-align: center; margin-bottom: 30px; }
+
+/* -------- Inputs -------- */
+.form-label { font-weight: 500; color: #334155; }
+.input-group-text { background-color: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; }
+.form-control { border-radius: 10px; border: 1px solid #e2e8f0; padding: 12px; background-color: #ffffff; }
+.form-control::placeholder { color: #94a3b8; }
+.form-control:focus { border-color: #334155; box-shadow: 0 0 0 0.12rem rgba(51, 65, 85, 0.25); }
+
+/* -------- Button -------- */
+.btn-primary {
+    background: linear-gradient(180deg, #334155, #1e293b);
+    color: #ffffff;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 32px;
+    width: 100%;
+    transition: all 0.3s ease;
+}
+.btn-primary:hover {
+    background: linear-gradient(180deg, #1e293b, #020617);
+    transform: translateY(-1px);
+}
+
+/* -------- Section Icons -------- */
+.section-icon { font-size: 1.4rem; margin-right: 10px; color: #334155; }
+
+/* -------- Snackbar -------- */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1055;
+}
+.toast {
+    border-radius: 12px;
+    min-width: 300px;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
+    font-weight: 500;
+}
+.toast-success { background-color: #15803d; color: #fff; }
+.toast-danger  { background-color: #b91c1c; color: #fff; }
+.toast-warning { background-color: #b45309; color: #fff; }
+.toast-info    { background-color: #334155; color: #fff; }
+
+/* -------- Loader -------- */
+#loader {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(247, 249, 252, 0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    font-family: 'Roboto', sans-serif;
+    color: #1e293b;
+    font-size: 1.2rem;
+    text-align: center;
+}
+#loader.hidden { display: none; }
+#loader .spinner-border { width: 3rem; height: 3rem; margin-bottom: 15px; }
+</style>
+</head>
+<body>
+
+<!-- Loader -->
+<div id="loader">
+    <div class="spinner-border text-dark" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <p>Loading, please wait...</p>
+</div>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="{{ url_for('index') }}">
+        Intelligent Resume Screening and Job Matching System
+    </a>
+    <div class="collapse navbar-collapse justify-content-end">
+      <ul class="navbar-nav align-items-center">
+        <li class="nav-item me-2">
+          <a class="btn btn-outline-light" href="{{ url_for('history') }}">
+            <i class="bi bi-clock-history"></i> Show Previous Results
+          </a>
+        </li>
+        <li class="nav-item">
+          <span class="nav-link text-white">Hello, {{ session['username'] }}</span>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link btn btn-outline-light ms-2" href="{{ url_for('logout') }}">Logout</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- Main Card -->
+<div class="card">
+
+    <h1>Intelligent Resume Screening and Job Matching System</h1>
+
+    <!-- Flash Messages -->
+    <div class="toast-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="toast toast-{{ category }}" data-bs-delay="3000">
+                    <div class="d-flex">
+                        <div class="toast-body">{{ message }}</div>
+                        <button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    <form action="/" method="POST" enctype="multipart/form-data">
+
+        <!-- Multiple JD PDFs -->
+        <div class="mb-4">
+            <label class="form-label"><i class="section-icon bi bi-file-earmark-text"></i>Job Descriptions (PDF, multiple allowed)</label>
+            <input class="form-control" type="file" name="job_description" accept=".pdf" multiple required>
+        </div>
+
+        <!-- Optional JD Text -->
+        <div class="mb-4">
+            <label class="form-label"><i class="section-icon bi bi-pencil-square"></i>Or Paste Job Description Text</label>
+            <textarea class="form-control" name="job_description_text" rows="5" placeholder="Paste job description here..."></textarea>
+        </div>
+
+        <!-- Multiple Resumes -->
+        <div class="mb-4">
+            <label class="form-label"><i class="section-icon bi bi-file-person"></i>Resumes (PDF, multiple allowed)</label>
+            <input class="form-control" type="file" name="resumes" accept=".pdf" multiple required>
+        </div>
+
+        <div class="text-center">
+            <input class="btn btn-primary btn-lg" type="submit" value="Analyze Results">
+        </div>
+    </form>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Hide loader when page is fully loaded
+window.addEventListener('load', () => {
+    document.getElementById('loader').classList.add('hidden');
+});
+
+// Show loader on form submission
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', () => {
+            document.getElementById('loader').style.display = 'flex';
+        });
+    });
+
+    // Show toast notifications
+    document.querySelectorAll('.toast').forEach(t => new bootstrap.Toast(t).show());
+});
+</script>
+
+</body>
+</html>
